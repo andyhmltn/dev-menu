@@ -48,7 +48,8 @@ func (w Direction) EnumIndex() int {
 }
 
 type Row struct {
-	paneId string
+	paneId  string
+	command string
 }
 
 type Column struct {
@@ -57,33 +58,11 @@ type Column struct {
 }
 
 var columns []*Column = []*Column{{
-	paneId: "",
-	children: []*Row{{
-		paneId: "",
-	}, {
-		paneId: "",
-	}, {
-		paneId: "",
-	}},
+	children: []*Row{{}, {}, {}},
 }, {
-	paneId: "",
-	children: []*Row{{
-		paneId: "",
-	}, {
-		paneId: "",
-	}},
-}, {
-	paneId: "",
-	children: []*Row{{
-		paneId: "",
-	}, {
-		paneId: "",
-	}, {
-		paneId: "",
-	}, {
-		paneId: "",
-	}},
-}}
+	children: []*Row{{command: "go run ./menu/main.go; clear"}},
+},
+}
 
 func splitWindow(direction Direction, target string) (string, error) {
 	fmt.Printf("Splitting %s target: %s\n", direction, target)
@@ -119,6 +98,45 @@ func getInitialPaneId() (string, error) {
 	fmt.Printf("Found first pane %s\n", paneId)
 
 	return paneId, nil
+}
+
+func renderRows() {
+	for _, column := range columns {
+		if len(column.children) > 0 {
+			for r, row := range column.children {
+				target := row.paneId
+				hasNextRow := r < (len(column.children) - 1)
+
+				// If this is the first row, target the parent column
+				if r == 0 {
+					row.paneId = column.paneId
+					target = column.paneId
+
+					if len(row.command) > 0 {
+						RunTmuxCmd([]string{"send-keys", "-t", target, row.command, "Enter"})
+
+					}
+				}
+
+				if hasNextRow {
+					// Only split vertically when there is a next row
+					nextPaneId, err := splitWindow(Vertical, target)
+
+					if err != nil {
+						panic(err)
+					}
+
+					// Set the next rows paneId
+					column.children[r+1].paneId = nextPaneId
+				}
+
+			}
+
+		}
+
+		resizeRowsInColumn(column)
+	}
+
 }
 
 func renderColumns() {
@@ -176,40 +194,6 @@ func resizeRowsInColumn(column *Column) {
 	}
 }
 
-func renderRows() {
-	for _, column := range columns {
-		if len(column.children) > 0 {
-			for r, row := range column.children {
-				target := row.paneId
-				hasNextRow := r < (len(column.children) - 1)
-
-				// If this is the first row, target the parent column
-				if r == 0 {
-					row.paneId = column.paneId
-					target = column.paneId
-				}
-
-				if hasNextRow {
-					// Only split vertically when there is a next row
-					nextPaneId, err := splitWindow(Vertical, target)
-
-					if err != nil {
-						panic(err)
-					}
-
-					// Set the next rows paneId
-					column.children[r+1].paneId = nextPaneId
-				}
-
-			}
-
-		}
-
-		resizeRowsInColumn(column)
-	}
-
-}
-
 func getWindowHeight() (int, error) {
 	heightStr, _, err := RunTmuxCmd([]string{"display-message", "-p", "#{window_height}"})
 
@@ -230,7 +214,9 @@ func getWindowHeight() (int, error) {
 
 func main() {
 	renderColumns()
-	// Now the first set of columns is rendered, select the layout
+
+	// Set the layout so all columns are equal width
 	RunTmuxCmd([]string{"select-layout", "-n"})
+
 	renderRows()
 }
