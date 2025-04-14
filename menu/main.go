@@ -1,17 +1,71 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"github.com/andyhmltn/dev-menu/tmux"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"os"
+	"strings"
 )
+
+type MenuListItem struct {
+	id     string
+	paneId string
+	title  string
+	desc   string
+	cmd    string
+}
+
+type menuListItemFlag []MenuListItem
+
+func (m *menuListItemFlag) String() string {
+	var parts []string
+
+	for _, item := range *m {
+		parts = append(parts, fmt.Sprintf("%s:%s:%s:%s:%s", item.id, item.paneId, item.title, item.desc, item.cmd))
+	}
+
+	return strings.Join(parts, ",")
+}
+
+func (m *menuListItemFlag) GetById(id string) (MenuListItem, error) {
+	for _, item := range *m {
+		if item.id == id {
+			return item, nil
+		}
+	}
+
+	return MenuListItem{}, fmt.Errorf("Menu item not found with id %s", id)
+}
+
+func (m *menuListItemFlag) Set(value string) error {
+	items := strings.Split(value, ",")
+
+	for _, item := range items {
+		parts := strings.SplitN(item, ":", 5)
+
+		if len(parts) != 5 {
+			return fmt.Errorf("Invalid command provided")
+		}
+
+		*m = append(*m, MenuListItem{id: parts[0],
+			paneId: parts[1],
+			title:  parts[2],
+			desc:   parts[3],
+			cmd:    parts[4],
+		})
+	}
+
+	return nil
+}
 
 var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 type item struct {
-	title, desc string
+	title, desc, cmd, paneId string
 }
 
 func (i item) Title() string       { return i.title }
@@ -19,18 +73,11 @@ func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
 type model struct {
-	list     list.Model
-	choices  []string
-	cursor   int
-	selected map[int]struct{}
-}
-
-func initialModel() model {
-	return model{
-		choices:  []string{"Restart all", "Restart Frontend", "Restart Backend"},
-		selected: make(map[int]struct{}),
-	}
-
+	list      list.Model
+	menuItems menuListItemFlag
+	choices   []string
+	cursor    int
+	selected  map[int]struct{}
 }
 
 func (m model) Init() tea.Cmd {
@@ -42,6 +89,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
+		}
+
+		if msg.String() == "enter" {
+			selected := m.list.SelectedItem()
+
+			if selected != nil {
+				value := strings.Split(selected.FilterValue(), ".")
+
+				// fmt.Printf("Selected item %s", value[0])
+
+				menuItem, err := m.menuItems.GetById(value[0])
+
+				if err != nil {
+					panic("panic")
+				}
+
+				// fmt.Printf("Menu item %s:%s", menuItem.cmd, menuItem.paneId)
+
+				tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
+				// tmux.RunCmdInTmuxPane("Enter", menuItem.paneId)
+			}
+
 		}
 
 		if msg.String() == "0" {
@@ -70,11 +139,18 @@ func (m model) View() string {
 }
 
 func main() {
-	items := []list.Item{
-		item{title: "0. Restart All", desc: "Restart all services"},
-		item{title: "1. Restart Frontend", desc: "Reruns: npm dev"},
-		item{title: "2. Restart Backend", desc: "Reruns: docker compose up"},
-		item{title: "A. Generate DB Schema", desc: "Runs: npm run generate"},
+	var menuItems menuListItemFlag
+
+	flag.Var(&menuItems, "items", "Command separated list of id:title:command")
+	flag.Parse()
+
+	items := []list.Item{}
+
+	for _, menuItem := range menuItems {
+		title := fmt.Sprintf("%s. %s", menuItem.id, menuItem.title)
+		items = append(items, item{title: title, desc: menuItem.desc})
+
+		// fmt.Printf("Command provided: %s", menuItem.cmd)
 	}
 
 	d := list.NewDefaultDelegate()
@@ -83,13 +159,13 @@ func main() {
 
 	myList := list.New(items, d, 0, 0)
 
-	m := model{list: myList}
+	m := model{list: myList, menuItems: menuItems}
 	m.list.Title = "Dev Menu"
 
 	app := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := app.Run(); err != nil {
-		fmt.Printf("oh no, an error! %v", err)
+		// fmt.Printf("oh no, an error! %v", err)
 		os.Exit(1)
 	}
 

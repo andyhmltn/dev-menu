@@ -1,3 +1,3 @@
 tmux new-session -d -s DevMenu
-go run ./tmux/main.go
+go run ./cmd/main.go
 tmux attach -t DevMenu
