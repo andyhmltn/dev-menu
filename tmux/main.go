@@ -57,18 +57,24 @@ type Row struct {
 	paneId  string
 	title   string
 	desc    string
-	command string
+	cmd     string
 	focus   bool
 	devMenu bool
 }
 
+func wrapInParenthesis(s string) string {
+	return fmt.Sprintf("\"%s\"", s)
+}
+
 func (r *Row) GetRestartDevMenuCommand() string {
 	item := []string{
-		fmt.Sprintf("\"%s\"", r.id),
-		fmt.Sprintf("\"%s\"", r.paneId),
-		fmt.Sprintf("\"%s\"", "Restart "+r.title),
-		fmt.Sprintf("\"%s\"", r.desc),
-		fmt.Sprintf("\"%s\"", r.command),
+		wrapInParenthesis(r.id),
+		wrapInParenthesis(r.paneId),
+		wrapInParenthesis("Restart " + r.title),
+		// TODO: Throw error when more than x : splits in
+		// the menu command (changing the below - to : should result in an error)
+		wrapInParenthesis("Re runs command -  " + r.cmd),
+		wrapInParenthesis(r.cmd),
 	}
 
 	return strings.Join(item, ":")
@@ -80,7 +86,19 @@ type Column struct {
 }
 
 var columns []*Column = []*Column{{
-	children: []*Row{{id: "1", title: "Backend", desc: "Backend service", command: "cd ~/Development/react-app-interview && npm run start-server"}, {id: "2", title: "Frontend", desc: "Frontend service", command: "cd ~/Development/react-app-interview && npm run start-client"}},
+	children: []*Row{
+		{
+			id:    "1",
+			title: "Backend",
+			desc:  "Backend service",
+			cmd:   "cd ~/Development/react-app-interview && npm run start-server",
+		}, {
+			id:    "2",
+			title: "Frontend",
+			desc:  "Frontend service",
+			cmd:   "cd ~/Development/react-app-interview && npm run start-client",
+		},
+	},
 }, {
 	children: []*Row{{devMenu: true, focus: true}},
 },
@@ -122,8 +140,8 @@ func getInitialPaneId() (string, error) {
 }
 
 func initRow(row *Row, target string) {
-	if len(row.command) > 0 {
-		RunTmuxCmd([]string{"send-keys", "-t", target, row.command, "C-m"})
+	if len(row.cmd) > 0 {
+		RunTmuxCmd([]string{"send-keys", "-t", target, row.cmd, "C-m"})
 	}
 
 	if row.focus {

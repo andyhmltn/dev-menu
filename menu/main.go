@@ -94,42 +94,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "enter" {
 			selected := m.list.SelectedItem()
 
-			if selected != nil {
-				value := strings.Split(selected.FilterValue(), ".")
-				id := value[0]
+			value := strings.Split(selected.FilterValue(), ".")
+			id := value[0]
 
-				if id == "0" {
-					for _, menuItem := range m.menuItems {
-						if menuItem.id != "0" {
-							tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
-						}
+			if id == "0" {
+				for _, menuItem := range m.menuItems {
+					if menuItem.id != "0" {
+						tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
 					}
-
-				} else {
-
-					menuItem, err := m.menuItems.GetById(id)
-
-					if err != nil {
-						panic("panic")
-					}
-
-					tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
 				}
 
+			} else {
+
+				menuItem, err := m.menuItems.GetById(id)
+
+				if err != nil {
+					panic("panic")
+				}
+
+				tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
 			}
 
 		}
 
+		// Allow highlighting a menu item by typing the ID
 		if msg.String() == "0" {
 			m.list.Select(0)
 		}
 
-		if msg.String() == "1" {
-			m.list.Select(1)
-		}
+		for key, menuItem := range m.menuItems {
+			if msg.String() == menuItem.id {
+				m.list.Select(key + 1)
+			}
 
-		if msg.String() == "2" {
-			m.list.Select(2)
 		}
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -175,7 +172,7 @@ func main() {
 	app := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := app.Run(); err != nil {
-		// fmt.Printf("oh no, an error! %v", err)
+		fmt.Printf("Encountered error: %v", err)
 		os.Exit(1)
 	}
 
