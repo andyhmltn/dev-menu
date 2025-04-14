@@ -96,19 +96,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if selected != nil {
 				value := strings.Split(selected.FilterValue(), ".")
+				id := value[0]
 
-				// fmt.Printf("Selected item %s", value[0])
+				if id == "0" {
+					for _, menuItem := range m.menuItems {
+						if menuItem.id != "0" {
+							tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
+						}
+					}
 
-				menuItem, err := m.menuItems.GetById(value[0])
+				} else {
 
-				if err != nil {
-					panic("panic")
+					menuItem, err := m.menuItems.GetById(id)
+
+					if err != nil {
+						panic("panic")
+					}
+
+					tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
 				}
 
-				// fmt.Printf("Menu item %s:%s", menuItem.cmd, menuItem.paneId)
-
-				tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
-				// tmux.RunCmdInTmuxPane("Enter", menuItem.paneId)
 			}
 
 		}
@@ -144,13 +151,16 @@ func main() {
 	flag.Var(&menuItems, "items", "Command separated list of id:title:command")
 	flag.Parse()
 
-	items := []list.Item{}
+	items := []list.Item{
+		item{
+			title: "0. Restart all",
+			desc:  "Restart all services",
+		},
+	}
 
 	for _, menuItem := range menuItems {
 		title := fmt.Sprintf("%s. %s", menuItem.id, menuItem.title)
 		items = append(items, item{title: title, desc: menuItem.desc})
-
-		// fmt.Printf("Command provided: %s", menuItem.cmd)
 	}
 
 	d := list.NewDefaultDelegate()
