@@ -93,7 +93,7 @@ var columns []*Column = []*Column{{
 			desc:  "Backend service",
 			cmd:   "cd ~/Development/react-app-interview && npm run start-server",
 		}, {
-			id:    "2",
+			id:    "G",
 			title: "Frontend",
 			desc:  "Frontend service",
 			cmd:   "cd ~/Development/react-app-interview && npm run start-client",

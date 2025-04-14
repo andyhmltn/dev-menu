@@ -80,6 +80,26 @@ type model struct {
 	selected  map[int]struct{}
 }
 
+func selectMenuItem(id string, menuItems menuListItemFlag) {
+	if id == "0" {
+		for _, menuItem := range menuItems {
+			if menuItem.id != "0" {
+				tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
+			}
+		}
+
+	} else {
+
+		menuItem, err := menuItems.GetById(id)
+
+		if err != nil {
+			panic("panic")
+		}
+
+		tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
+	}
+}
+
 func (m model) Init() tea.Cmd {
 	return nil
 }
@@ -97,34 +117,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			value := strings.Split(selected.FilterValue(), ".")
 			id := value[0]
 
-			if id == "0" {
-				for _, menuItem := range m.menuItems {
-					if menuItem.id != "0" {
-						tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
-					}
-				}
-
-			} else {
-
-				menuItem, err := m.menuItems.GetById(id)
-
-				if err != nil {
-					panic("panic")
-				}
-
-				tmux.RunCmdInTmuxPane(menuItem.cmd, menuItem.paneId)
-			}
-
+			selectMenuItem(id, m.menuItems)
 		}
 
 		// Allow highlighting a menu item by typing the ID
 		if msg.String() == "0" {
 			m.list.Select(0)
+			selectMenuItem("0", m.menuItems)
 		}
 
 		for key, menuItem := range m.menuItems {
 			if msg.String() == menuItem.id {
 				m.list.Select(key + 1)
+				selectMenuItem(menuItem.id, m.menuItems)
 			}
 
 		}
@@ -143,7 +148,7 @@ func (m model) View() string {
 }
 
 func main() {
-	var menuItems menuListItemFlag
+	var menuItems menuListItemFlag = menuListItemFlag{}
 
 	flag.Var(&menuItems, "items", "Command separated list of id:title:command")
 	flag.Parse()
@@ -153,6 +158,11 @@ func main() {
 			title: "0. Restart all",
 			desc:  "Restart all services",
 		},
+		// item{
+		// 	title: "G. Re-generate types",
+		// 	desc:  "Blah blah",
+		// 	cmd:   "XYZ",
+		// },
 	}
 
 	for _, menuItem := range menuItems {
