@@ -15,7 +15,6 @@ var session_name = "DevMenu"
 func RunTmuxCmd(args []string) (string, error) {
 	cmd := exec.Command("tmux", args...)
 
-	// fmt.Printf("%s\n", cmd.String())
 	log := exec.Command("echo", string(count))
 	err := log.Run()
 
@@ -117,7 +116,6 @@ func getInitialPaneId() (string, error) {
 
 	paneId := strings.TrimSpace(string(outBytes))
 
-	// TODO: Verbose
 	fmt.Printf("Found first pane %s\n", paneId)
 
 	return paneId, nil
@@ -125,7 +123,7 @@ func getInitialPaneId() (string, error) {
 
 func initRow(row *Row, target string) {
 	if len(row.command) > 0 {
-		RunTmuxCmd([]string{"send-keys", "-t", target, row.command, "Enter"})
+		RunTmuxCmd([]string{"send-keys", "-t", target, row.command, "C-m"})
 	}
 
 	if row.focus {
@@ -160,16 +158,15 @@ func renderRows() {
 				if r == 0 {
 					row.paneId = column.paneId
 					target = column.paneId
-					initRow(row, target)
 				}
+
+				initRow(row, target)
 
 				if hasNextRow {
 					// Only split vertically when there is a next row
 					nextPaneId, err := splitWindow(Vertical, target)
 
-					if r != 0 {
-						initRow(row, target)
-					}
+					initRow(row, target)
 
 					if err != nil {
 						panic(err)
